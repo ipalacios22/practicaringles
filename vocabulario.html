@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Práctica de vocabulario EN ↔ ES</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface2: #243044;
+      --border: #2d3a4f;
+      --text: #e8edf4;
+      --muted: #8b9cb3;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --success: #22c55e;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --radius: 12px;
+      --font: "Segoe UI", system-ui, -apple-system, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 3rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+
+    header p {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .card h2 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 160px;
+      padding: 0.75rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 0.5rem;
+    }
+
+    .hint code {
+      background: var(--surface2);
+      padding: 0.1em 0.35em;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+
+    .options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-top: 0.75rem;
+    }
+
+    .option-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .option-group span {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .radio-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .radio-row label {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      cursor: pointer;
+      color: var(--text);
+      font-size: 0.9rem;
+      margin: 0;
+      padding: 0.4rem 0.65rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .radio-row input { accent-color: var(--accent); }
+
+    .radio-row label:has(input:checked) {
+      border-color: var(--accent);
+      background: rgba(59, 130, 246, 0.15);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    button {
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.6rem 1.1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background 0.15s, transform 0.1s;
+    }
+
+    button:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-primary:hover { background: var(--accent-hover); }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover { background: var(--border); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    /* Quiz panel */
+    #quiz-panel { display: none; }
+
+    #quiz-panel.active { display: block; }
+
+    #setup-panel.hidden { display: none; }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .stats strong { color: var(--text); }
+
+    .progress-bar {
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+    }
+
+    .progress-bar fill {
+      display: block;
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.3s;
+    }
+
+    .question-box {
+      text-align: center;
+      padding: 1.5rem 1rem;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      margin-bottom: 1.25rem;
+    }
+
+    .direction-badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+
+    .prompt-word {
+      font-size: 2rem;
+      font-weight: 600;
+      word-break: break-word;
+    }
+
+    .answer-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .answer-row input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      font-size: 1rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+    }
+
+    .answer-row input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .feedback {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      display: none;
+    }
+
+    .feedback.show { display: block; }
+
+    .feedback.correct {
+      background: rgba(34, 197, 94, 0.15);
+      border: 1px solid var(--success);
+      color: #86efac;
+    }
+
+    .feedback.wrong {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--error);
+      color: #fca5a5;
+    }
+
+    .feedback .correct-answer {
+      margin-top: 0.35rem;
+      font-weight: 600;
+    }
+
+    .quiz-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .empty-state {
+      color: var(--warning);
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+      display: none;
+    }
+
+    .empty-state.show { display: block; }
+
+    .results {
+      text-align: center;
+      padding: 2rem 1rem;
+    }
+
+    .results h3 {
+      font-size: 1.35rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .results .score-big {
+      font-size: 3rem;
+      font-weight: 700;
+      color: var(--accent);
+      margin: 0.5rem 0 1rem;
+    }
+
+    .mistakes-section {
+      text-align: left;
+      margin: 1.5rem 0;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .mistakes-section h4 {
+      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
+      color: var(--error);
+    }
+
+    .mistakes-section.all-correct h4 { color: var(--success); }
+
+    .mistakes-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .mistakes-list li {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--error);
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      font-size: 0.9rem;
+    }
+
+    .mistakes-list .pair {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .mistakes-list .detail {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .mistakes-list .your-answer {
+      color: #fca5a5;
+    }
+
+    #results-panel { display: none; }
+    #results-panel.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Práctica de vocabulario</h1>
+      <p>Inglés ↔ Español — escribe tus palabras y practica</p>
+    </header>
+
+    <div id="setup-panel">
+      <div class="card">
+        <h2>Tu lista de palabras</h2>
+        <label for="word-list">Una palabra por línea (par inglés–español)</label>
+        <textarea id="word-list" placeholder="apple = manzana&#10;dog - perro&#10;hello | hola&#10;book, libro"></textarea>
+        <p class="hint">
+          Separa cada par con <code>=</code>, <code>-</code>, <code>|</code>, <code>,</code> o tab.
+          La primera palabra = inglés, la segunda = español.
+        </p>
+        <p id="parse-error" class="empty-state"></p>
+      </div>
+
+      <div class="card">
+        <h2>Opciones</h2>
+        <div class="options">
+          <div class="option-group">
+            <span>Dirección de la pregunta</span>
+            <div class="radio-row">
+              <label><input type="radio" name="direction" value="mixed" checked> Aleatorio</label>
+              <label><input type="radio" name="direction" value="en-es"> Inglés → Español</label>
+              <label><input type="radio" name="direction" value="es-en"> Español → Inglés</label>
+            </div>
+          </div>
+          <div class="option-group">
+            <span>Orden</span>
+            <div class="radio-row">
+              <label><input type="radio" name="order" value="random" checked> Aleatorio</label>
+              <label><input type="radio" name="order" value="sequential"> En orden</label>
+            </div>
+          </div>
+          <div class="option-group">
+            <span>Mayúsculas / acentos</span>
+            <div class="radio-row">
+              <label><input type="checkbox" id="ignore-case" checked> Ignorar mayúsculas</label>
+              <label><input type="checkbox" id="ignore-accents" checked> Ignorar acentos</label>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn-primary" id="btn-start">Empezar práctica</button>
+          <button type="button" class="btn-ghost" id="btn-example">Cargar ejemplo</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="quiz-panel">
+      <div class="card">
+        <div class="stats">
+          <span>Pregunta <strong id="current-num">1</strong> de <strong id="total-num">10</strong></span>
+          <span>Aciertos: <strong id="score-display">0</strong></span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+        </div>
+
+        <div id="question-view">
+          <div class="question-box">
+            <div class="direction-badge" id="direction-badge">Inglés → Español</div>
+            <div class="prompt-word" id="prompt-word">—</div>
+          </div>
+          <label for="answer-input" class="sr-only" style="position:absolute;left:-9999px">Tu respuesta</label>
+          <div class="answer-row">
+            <input type="text" id="answer-input" placeholder="Escribe la traducción..." autocomplete="off" autocapitalize="off">
+            <button type="button" class="btn-primary" id="btn-check">Comprobar</button>
+          </div>
+          <div class="feedback" id="feedback"></div>
+          <div class="quiz-actions">
+            <button type="button" class="btn-secondary" id="btn-next" style="display:none">Siguiente</button>
+            <button type="button" class="btn-ghost" id="btn-skip">Saltar</button>
+            <button type="button" class="btn-ghost" id="btn-quit">Volver a la lista</button>
+          </div>
+        </div>
+
+        <div id="results-view" class="results" style="display:none">
+          <h3>¡Sesión terminada!</h3>
+          <div class="score-big" id="final-score">0/0</div>
+          <p id="final-percent" style="color:var(--muted);margin-bottom:1rem"></p>
+          <div class="mistakes-section" id="mistakes-section">
+            <h4 id="mistakes-title">Palabras con error</h4>
+            <ul class="mistakes-list" id="mistakes-list"></ul>
+          </div>
+          <div class="btn-row" style="justify-content:center">
+            <button type="button" class="btn-primary" id="btn-retry-mistakes" style="display:none">Practicar solo las falladas</button>
+            <button type="button" class="btn-primary" id="btn-restart">Repetir misma lista</button>
+            <button type="button" class="btn-secondary" id="btn-back-setup">Editar lista</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SEPARATORS = /[=|\-–—,;\t]+/;
+
+    const EXAMPLE = `apple = manzana
+dog - perro
+hello | hola
+book, libro
+water = agua
+house - casa
+friend | amigo
+time, tiempo
+work = trabajo
+good - bueno`;
+
+    let pairs = [];
+    let queue = [];
+    let currentIndex = 0;
+    let score = 0;
+    let answered = false;
+    let currentDirection = 'en-es';
+    let mistakes = [];
+
+    const $ = (id) => document.getElementById(id);
+
+    function parseWordList(text) {
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      const result = [];
+      const errors = [];
+
+      lines.forEach((line, i) => {
+        const parts = line.split(SEPARATORS).map(p => p.trim()).filter(Boolean);
+        if (parts.length < 2) {
+          errors.push(`Línea ${i + 1}: necesitas dos palabras separadas (=, -, |, ,)`);
+          return;
+        }
+        const en = parts[0];
+        const es = parts.slice(1).join(' ').trim();
+        if (!en || !es) {
+          errors.push(`Línea ${i + 1}: par incompleto`);
+          return;
+        }
+        result.push({ en, es });
+      });
+
+      return { pairs: result, errors };
+    }
+
+    function normalize(str, ignoreCase, ignoreAccents) {
+      let s = str.trim();
+      if (ignoreCase) s = s.toLowerCase();
+      if (ignoreAccents) {
+        s = s.normalize('NFD').replace(/\p{M}/gu, '');
+      }
+      return s;
+    }
+
+    function answersMatch(user, correct) {
+      const ignoreCase = $('ignore-case').checked;
+      const ignoreAccents = $('ignore-accents').checked;
+      const a = normalize(user, ignoreCase, ignoreAccents);
+      const b = normalize(correct, ignoreCase, ignoreAccents);
+      if (a === b) return true;
+      const alts = correct.split(/\s*\/\s*/).map(s => normalize(s, ignoreCase, ignoreAccents));
+      return alts.some(alt => alt === a);
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function getDirection() {
+      const mode = document.querySelector('input[name="direction"]:checked').value;
+      if (mode === 'en-es') return 'en-es';
+      if (mode === 'es-en') return 'es-en';
+      return Math.random() < 0.5 ? 'en-es' : 'es-en';
+    }
+
+    function buildQueue(indices) {
+      const order = document.querySelector('input[name="order"]:checked').value;
+      const pool = indices ?? pairs.map((_, i) => i);
+      queue = order === 'random' ? shuffle([...pool]) : [...pool];
+      currentIndex = 0;
+      score = 0;
+      mistakes = [];
+    }
+
+    function recordMistake(userAnswer) {
+      const pair = pairs[queue[currentIndex]];
+      const expected = getExpectedAnswer();
+      const prompt = currentDirection === 'en-es' ? pair.en : pair.es;
+      mistakes.push({
+        pairIndex: queue[currentIndex],
+        en: pair.en,
+        es: pair.es,
+        direction: currentDirection,
+        prompt,
+        expected,
+        userAnswer: userAnswer ?? null,
+      });
+    }
+
+    function showSetup() {
+      $('setup-panel').classList.remove('hidden');
+      $('quiz-panel').classList.remove('active');
+      $('question-view').style.display = 'block';
+      $('results-view').style.display = 'none';
+    }
+
+    function showQuiz() {
+      $('setup-panel').classList.add('hidden');
+      $('quiz-panel').classList.add('active');
+    }
+
+    function updateProgress() {
+      const total = queue.length;
+      const current = Math.min(currentIndex + 1, total);
+      $('current-num').textContent = current;
+      $('total-num').textContent = total;
+      $('score-display').textContent = score;
+      const pct = total ? ((currentIndex) / total) * 100 : 0;
+      $('progress-fill').style.width = pct + '%';
+    }
+
+    function showQuestion() {
+      answered = false;
+      $('feedback').classList.remove('show', 'correct', 'wrong');
+      $('btn-next').style.display = 'none';
+      $('answer-input').value = '';
+      $('answer-input').disabled = false;
+      $('btn-check').disabled = false;
+
+      if (currentIndex >= queue.length) {
+        showResults();
+        return;
+      }
+
+      const pair = pairs[queue[currentIndex]];
+      currentDirection = getDirection();
+
+      if (currentDirection === 'en-es') {
+        $('direction-badge').textContent = '¿Cómo se dice en español?';
+        $('prompt-word').textContent = pair.en;
+        $('answer-input').placeholder = 'Traducción en español...';
+      } else {
+        $('direction-badge').textContent = '¿Cómo se dice en inglés?';
+        $('prompt-word').textContent = pair.es;
+        $('answer-input').placeholder = 'Traducción en inglés...';
+      }
+
+      updateProgress();
+      $('answer-input').focus();
+    }
+
+    function getExpectedAnswer() {
+      const pair = pairs[queue[currentIndex]];
+      return currentDirection === 'en-es' ? pair.es : pair.en;
+    }
+
+    function checkAnswer() {
+      if (answered) return;
+      const user = $('answer-input').value.trim();
+      if (!user) {
+        $('answer-input').focus();
+        return;
+      }
+
+      answered = true;
+      const expected = getExpectedAnswer();
+      const correct = answersMatch(user, expected);
+
+      const fb = $('feedback');
+      fb.classList.add('show');
+
+      if (correct) {
+        score++;
+        fb.className = 'feedback show correct';
+        fb.innerHTML = '✓ ¡Correcto!';
+      } else {
+        recordMistake(user);
+        fb.className = 'feedback show wrong';
+        fb.innerHTML = `✗ Incorrecto.<div class="correct-answer">Respuesta: ${escapeHtml(expected)}</div>`;
+      }
+
+      $('score-display').textContent = score;
+      $('answer-input').disabled = true;
+      $('btn-check').disabled = true;
+      $('btn-next').style.display = 'inline-block';
+
+      if (currentIndex >= queue.length - 1) {
+        $('btn-next').textContent = 'Ver resultados';
+      } else {
+        $('btn-next').textContent = 'Siguiente';
+      }
+    }
+
+    function escapeHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function nextQuestion() {
+      currentIndex++;
+      if (currentIndex >= queue.length) {
+        showResults();
+      } else {
+        showQuestion();
+      }
+    }
+
+    function skipQuestion() {
+      if (!answered) {
+        recordMistake(null);
+        const expected = getExpectedAnswer();
+        const fb = $('feedback');
+        fb.className = 'feedback show wrong';
+        fb.innerHTML = `Saltada.<div class="correct-answer">Respuesta: ${escapeHtml(expected)}</div>`;
+        fb.classList.add('show');
+        answered = true;
+        $('answer-input').disabled = true;
+        $('btn-check').disabled = true;
+        $('btn-next').style.display = 'inline-block';
+        if (currentIndex >= queue.length - 1) {
+          $('btn-next').textContent = 'Ver resultados';
+        }
+        return;
+      }
+      nextQuestion();
+    }
+
+    function renderMistakesList() {
+      const section = $('mistakes-section');
+      const list = $('mistakes-list');
+      const title = $('mistakes-title');
+      const retryBtn = $('btn-retry-mistakes');
+
+      list.innerHTML = '';
+
+      if (mistakes.length === 0) {
+        section.classList.add('all-correct');
+        title.textContent = '¡Perfecto! No tuviste errores';
+        retryBtn.style.display = 'none';
+        return;
+      }
+
+      section.classList.remove('all-correct');
+      title.textContent = `Palabras con error (${mistakes.length})`;
+      retryBtn.style.display = 'inline-block';
+
+      mistakes.forEach((m) => {
+        const li = document.createElement('li');
+        const dirLabel = m.direction === 'en-es'
+          ? `${m.en} → ${m.es}`
+          : `${m.es} → ${m.en}`;
+        let detail = `Pregunta: <strong>${escapeHtml(m.prompt)}</strong> · Correcta: <strong>${escapeHtml(m.expected)}</strong>`;
+        if (m.userAnswer === null) {
+          detail += ' · <span class="your-answer">Saltada</span>';
+        } else {
+          detail += ` · <span class="your-answer">Escribiste: ${escapeHtml(m.userAnswer)}</span>`;
+        }
+        li.innerHTML = `<div class="pair">${dirLabel}</div><div class="detail">${detail}</div>`;
+        list.appendChild(li);
+      });
+    }
+
+    function showResults() {
+      $('question-view').style.display = 'none';
+      $('results-view').style.display = 'block';
+      const total = queue.length;
+      const pct = total ? Math.round((score / total) * 100) : 0;
+      $('final-score').textContent = `${score} / ${total}`;
+      $('final-percent').textContent = `${pct}% de aciertos`;
+      $('progress-fill').style.width = '100%';
+      renderMistakesList();
+    }
+
+    function startQuizWithIndices(indices) {
+      buildQueue(indices);
+      $('question-view').style.display = 'block';
+      $('results-view').style.display = 'none';
+      $('btn-retry-mistakes').style.display = 'none';
+      showQuestion();
+    }
+
+    function startQuiz() {
+      const text = $('word-list').value;
+      const { pairs: parsed, errors } = parseWordList(text);
+      const errEl = $('parse-error');
+
+      if (errors.length) {
+        errEl.textContent = errors.slice(0, 3).join(' · ') + (errors.length > 3 ? '…' : '');
+        errEl.classList.add('show');
+        return;
+      }
+
+      if (parsed.length === 0) {
+        errEl.textContent = 'Añade al menos un par de palabras.';
+        errEl.classList.add('show');
+        return;
+      }
+
+      errEl.classList.remove('show');
+      pairs = parsed;
+      buildQueue();
+      showQuiz();
+      $('question-view').style.display = 'block';
+      $('results-view').style.display = 'none';
+      showQuestion();
+    }
+
+    $('btn-start').addEventListener('click', startQuiz);
+
+    $('btn-example').addEventListener('click', () => {
+      $('word-list').value = EXAMPLE;
+      $('parse-error').classList.remove('show');
+    });
+
+    $('btn-check').addEventListener('click', checkAnswer);
+
+    $('answer-input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        if (answered) nextQuestion();
+        else checkAnswer();
+      }
+    });
+
+    $('btn-next').addEventListener('click', nextQuestion);
+    $('btn-skip').addEventListener('click', skipQuestion);
+    $('btn-quit').addEventListener('click', showSetup);
+    $('btn-restart').addEventListener('click', () => startQuizWithIndices());
+
+    $('btn-retry-mistakes').addEventListener('click', () => {
+      const failed = [...new Set(mistakes.map((m) => m.pairIndex))];
+      if (failed.length === 0) return;
+      startQuizWithIndices(failed);
+    });
+
+    $('btn-back-setup').addEventListener('click', showSetup);
+  </script>
+</body>
+</html>
