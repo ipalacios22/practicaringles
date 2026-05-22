@@ -399,11 +399,14 @@
     <div id="setup-panel">
       <div class="card">
         <h2>Tu lista de palabras</h2>
-        <label for="word-list">Una palabra por línea (par inglés–español)</label>
-        <textarea id="word-list" placeholder="apple = manzana&#10;dog - perro&#10;hello | hola&#10;book, libro"></textarea>
+        <label for="word-list">Una línea por palabra o verbo</label>
+        <textarea id="word-list" placeholder="meet	conocer, encontrarse con	met	met&#10;apple = manzana"></textarea>
         <p class="hint">
-          Separa cada par con <code>=</code>, <code>-</code>, <code>|</code>, <code>,</code> o tab.
-          La primera palabra = inglés, la segunda = español.
+          <strong>Verbos (4 columnas con tab):</strong> inglés · español · pasado · participio.
+          Ejemplo: <code>meet	conocer, encontrarse con	met	met</code> (cada columna separada con tab, no espacios).
+          <strong>Vocabulario simple:</strong> <code>apple = manzana</code> o <code>book, libro</code>.
+          Varios significados en español: <code>conocer, encontrarse con</code> — cualquiera vale.
+          Modo <strong>Los 3</strong>: traducción, pasado simple y participio (3 preguntas por verbo).
         </p>
         <p id="parse-error" class="empty-state"></p>
       </div>
@@ -427,6 +430,15 @@
             </div>
           </div>
           <div class="option-group">
+            <span>Modo de práctica</span>
+            <div class="radio-row">
+              <label><input type="radio" name="practice-mode" value="vocab" checked> Traducción</label>
+              <label><input type="radio" name="practice-mode" value="verb-all"> Los 3 (traducción + verbos)</label>
+              <label><input type="radio" name="practice-mode" value="past"> Solo pasado</label>
+              <label><input type="radio" name="practice-mode" value="participle"> Solo participio</label>
+            </div>
+          </div>
+          <div class="option-group">
             <span>Mayúsculas / acentos</span>
             <div class="radio-row">
               <label><input type="checkbox" id="ignore-case" checked> Ignorar mayúsculas</label>
@@ -437,6 +449,7 @@
         <div class="btn-row">
           <button type="button" class="btn-primary" id="btn-start">Empezar práctica</button>
           <button type="button" class="btn-ghost" id="btn-example">Cargar ejemplo</button>
+          <button type="button" class="btn-ghost" id="btn-verbs">Cargar verbos</button>
         </div>
       </div>
     </div>
@@ -488,7 +501,7 @@
   </div>
 
   <script>
-    const SEPARATORS = /[=|\-–—,;\t]+/;
+    const STRONG_SEPARATORS = /\s*[=|\-|–|—|\t]\s*/;
 
     const EXAMPLE = `apple = manzana
 dog - perro
@@ -501,8 +514,48 @@ time, tiempo
 work = trabajo
 good - bueno`;
 
+    const VERB_LIST = `shake	agitar, temblar	shook	shaken
+be able to afford	poder pagar	was/were able to afford	been able to afford
+run into	encontrarse con	ran into	run into
+stand in line	hacer fila	stood in line	stood in line
+teach	enseñar	taught	taught
+fight	luchar, pelear	fought	fought
+give	dar, regalar	gave	given
+give back	devolver	gave back	given back
+hurt	doler, lastimar(se)	hurt	hurt
+keep on	seguir	kept on	kept on
+meet	conocer, encontrarse con	met	met
+think about	pensar en	thought about	thought about
+forget	olvidar	forgot	forgotten
+write	escribir	wrote	written
+to be afraid	temer, tener miedo	was/were afraid	been afraid
+get up	levantarse	got up	gotten up
+know	saber, conocer	knew	known
+sing	cantar	sang	sung
+hide	esconder(se)	hid	hidden
+grow up	crecer	grew up	grown up
+wake up	despertar	woke up	woken up
+take out	sacar	took out	taken out
+fly	volar, pilotear	flew	flown
+be laid off	ser despedido	was/were laid off	been laid off
+become	llegar a ser	became	become
+get better	mejorar	got better	gotten better
+babysit	cuidar niños (como niñera)	babysat	babysat
+pay attention	poner atención	paid attention	paid attention
+put together	armar	put together	put together
+hear	oír	heard	heard
+spend	pasar o dedicar tiempo; gastar dinero	spent	spent
+let	permitir, dejar	let	let`;
+
+    const VERB_ALL_TYPES = ['vocab', 'past', 'participle'];
+    const VERB_MODE_LABELS = {
+      vocab: 'Traducción',
+      past: 'Pasado simple',
+      participle: 'Participio pasado',
+    };
+
     let pairs = [];
-    let queue = [];
+    let queue = []; // { pairIndex, verbMode }
     let currentIndex = 0;
     let score = 0;
     let answered = false;
@@ -517,21 +570,84 @@ good - bueno`;
       const errors = [];
 
       lines.forEach((line, i) => {
-        const parts = line.split(SEPARATORS).map(p => p.trim()).filter(Boolean);
+        let parts;
+        if (line.includes('\t')) {
+          parts = line.split('\t').map(p => p.trim()).filter(Boolean);
+        } else if (STRONG_SEPARATORS.test(line)) {
+          const strong = line.split(STRONG_SEPARATORS).map(p => p.trim()).filter(Boolean);
+          parts = [strong[0], strong.slice(1).join(' ')];
+        } else {
+          const comma = line.split(/\s*,\s*/).map(p => p.trim()).filter(Boolean);
+          parts = comma.length === 2 ? comma : [];
+        }
+
         if (parts.length < 2) {
-          errors.push(`Línea ${i + 1}: necesitas dos palabras separadas (=, -, |, ,)`);
+          errors.push(`Línea ${i + 1}: formato inválido`);
           return;
         }
+
         const en = parts[0];
-        const es = parts.slice(1).join(' ').trim();
+        const es = parts[1];
         if (!en || !es) {
           errors.push(`Línea ${i + 1}: par incompleto`);
           return;
         }
-        result.push({ en, es });
+
+        const entry = { en, es };
+        if (parts.length >= 4) {
+          entry.past = parts[2];
+          entry.participle = parts[3];
+        }
+        result.push(entry);
       });
 
       return { pairs: result, errors };
+    }
+
+    function getPracticeMode() {
+      return document.querySelector('input[name="practice-mode"]:checked').value;
+    }
+
+    function pairSupportsMode(pair, mode) {
+      if (mode === 'vocab') return true;
+      if (mode === 'verb-all') {
+        return Boolean(pair.past && pair.participle);
+      }
+      if (mode === 'past') return Boolean(pair.past);
+      if (mode === 'participle') return Boolean(pair.participle);
+      return true;
+    }
+
+    function getCurrentPair() {
+      return pairs[queue[currentIndex].pairIndex];
+    }
+
+    function getCurrentVerbMode() {
+      return queue[currentIndex].verbMode;
+    }
+
+    function setVerbFormQuestion(verbMode, pair) {
+      currentDirection = 'verb-form';
+      $('direction-badge').textContent = VERB_MODE_LABELS[verbMode];
+      $('prompt-word').textContent = pair.en;
+      const placeholders = {
+        past: 'Pasado simple en inglés...',
+        participle: 'Participio en inglés...',
+      };
+      $('answer-input').placeholder = placeholders[verbMode];
+    }
+
+    function setTranslationQuestion(pair) {
+      currentDirection = getDirection();
+      if (currentDirection === 'en-es') {
+        $('direction-badge').textContent = '¿Cómo se dice en español?';
+        $('prompt-word').textContent = pair.en;
+        $('answer-input').placeholder = 'Traducción en español...';
+      } else {
+        $('direction-badge').textContent = '¿Cómo se dice en inglés?';
+        $('prompt-word').textContent = pair.es;
+        $('answer-input').placeholder = 'Traducción en inglés...';
+      }
     }
 
     function normalize(str, ignoreCase, ignoreAccents) {
@@ -543,14 +659,23 @@ good - bueno`;
       return s;
     }
 
+    function splitAnswerAlternatives(correct) {
+      return correct.split(/\s*[,;\/]\s*/).map((s) => s.trim()).filter(Boolean);
+    }
+
+    function formatAcceptedAnswers(correct) {
+      const alts = splitAnswerAlternatives(correct);
+      return alts.length > 1 ? alts.join(' / ') : correct;
+    }
+
     function answersMatch(user, correct) {
       const ignoreCase = $('ignore-case').checked;
       const ignoreAccents = $('ignore-accents').checked;
       const a = normalize(user, ignoreCase, ignoreAccents);
-      const b = normalize(correct, ignoreCase, ignoreAccents);
-      if (a === b) return true;
-      const alts = correct.split(/\s*\/\s*/).map(s => normalize(s, ignoreCase, ignoreAccents));
-      return alts.some(alt => alt === a);
+      const alts = splitAnswerAlternatives(correct).map((s) =>
+        normalize(s, ignoreCase, ignoreAccents)
+      );
+      return alts.some((alt) => alt === a);
     }
 
     function shuffle(arr) {
@@ -569,21 +694,49 @@ good - bueno`;
       return Math.random() < 0.5 ? 'en-es' : 'es-en';
     }
 
-    function buildQueue(indices) {
+    function buildQueue(poolIndices, fixedItems) {
       const order = document.querySelector('input[name="order"]:checked').value;
-      const pool = indices ?? pairs.map((_, i) => i);
-      queue = order === 'random' ? shuffle([...pool]) : [...pool];
+      const mode = getPracticeMode();
+      const pool = poolIndices ?? pairs.map((_, i) => i);
+      let items = fixedItems;
+
+      if (!items) {
+        items = [];
+        if (mode === 'verb-all') {
+          pool.forEach((i) => {
+            VERB_ALL_TYPES.forEach((vm) => {
+              if (vm === 'vocab' || pairSupportsMode(pairs[i], vm)) {
+                items.push({ pairIndex: i, verbMode: vm });
+              }
+            });
+          });
+        } else if (mode === 'past' || mode === 'participle') {
+          pool.forEach((i) => {
+            if (pairSupportsMode(pairs[i], mode)) {
+              items.push({ pairIndex: i, verbMode: mode });
+            }
+          });
+        } else {
+          pool.forEach((i) => items.push({ pairIndex: i, verbMode: null }));
+        }
+      }
+
+      queue = order === 'random' ? shuffle([...items]) : [...items];
       currentIndex = 0;
       score = 0;
       mistakes = [];
     }
 
     function recordMistake(userAnswer) {
-      const pair = pairs[queue[currentIndex]];
+      const item = queue[currentIndex];
+      const pair = pairs[item.pairIndex];
       const expected = getExpectedAnswer();
-      const prompt = currentDirection === 'en-es' ? pair.en : pair.es;
+      const prompt = (currentDirection === 'en-es' || currentDirection === 'verb-form')
+        ? pair.en
+        : pair.es;
       mistakes.push({
-        pairIndex: queue[currentIndex],
+        pairIndex: item.pairIndex,
+        verbMode: item.verbMode,
         en: pair.en,
         es: pair.es,
         direction: currentDirection,
@@ -628,17 +781,13 @@ good - bueno`;
         return;
       }
 
-      const pair = pairs[queue[currentIndex]];
-      currentDirection = getDirection();
+      const pair = getCurrentPair();
+      const verbMode = getCurrentVerbMode();
 
-      if (currentDirection === 'en-es') {
-        $('direction-badge').textContent = '¿Cómo se dice en español?';
-        $('prompt-word').textContent = pair.en;
-        $('answer-input').placeholder = 'Traducción en español...';
+      if (verbMode === 'past' || verbMode === 'participle') {
+        setVerbFormQuestion(verbMode, pair);
       } else {
-        $('direction-badge').textContent = '¿Cómo se dice en inglés?';
-        $('prompt-word').textContent = pair.es;
-        $('answer-input').placeholder = 'Traducción en inglés...';
+        setTranslationQuestion(pair);
       }
 
       updateProgress();
@@ -646,7 +795,10 @@ good - bueno`;
     }
 
     function getExpectedAnswer() {
-      const pair = pairs[queue[currentIndex]];
+      const pair = getCurrentPair();
+      const verbMode = getCurrentVerbMode();
+      if (verbMode === 'past') return pair.past;
+      if (verbMode === 'participle') return pair.participle;
       return currentDirection === 'en-es' ? pair.es : pair.en;
     }
 
@@ -672,7 +824,7 @@ good - bueno`;
       } else {
         recordMistake(user);
         fb.className = 'feedback show wrong';
-        fb.innerHTML = `✗ Incorrecto.<div class="correct-answer">Respuesta: ${escapeHtml(expected)}</div>`;
+        fb.innerHTML = `✗ Incorrecto.<div class="correct-answer">Respuesta: ${escapeHtml(formatAcceptedAnswers(expected))}</div>`;
       }
 
       $('score-display').textContent = score;
@@ -708,7 +860,7 @@ good - bueno`;
         const expected = getExpectedAnswer();
         const fb = $('feedback');
         fb.className = 'feedback show wrong';
-        fb.innerHTML = `Saltada.<div class="correct-answer">Respuesta: ${escapeHtml(expected)}</div>`;
+        fb.innerHTML = `Saltada.<div class="correct-answer">Respuesta: ${escapeHtml(formatAcceptedAnswers(expected))}</div>`;
         fb.classList.add('show');
         answered = true;
         $('answer-input').disabled = true;
@@ -743,10 +895,13 @@ good - bueno`;
 
       mistakes.forEach((m) => {
         const li = document.createElement('li');
-        const dirLabel = m.direction === 'en-es'
-          ? `${m.en} → ${m.es}`
-          : `${m.es} → ${m.en}`;
-        let detail = `Pregunta: <strong>${escapeHtml(m.prompt)}</strong> · Correcta: <strong>${escapeHtml(m.expected)}</strong>`;
+        const tenseLabel = m.verbMode && m.verbMode !== 'vocab'
+          ? VERB_MODE_LABELS[m.verbMode] + ' · '
+          : '';
+        const dirLabel = m.verbMode === 'vocab' || !m.verbMode
+          ? (m.direction === 'en-es' ? `${m.en} → ${m.es}` : `${m.es} → ${m.en}`)
+          : `${m.en} (${VERB_MODE_LABELS[m.verbMode]})`;
+        let detail = `${tenseLabel}Pregunta: <strong>${escapeHtml(m.prompt)}</strong> · Correcta: <strong>${escapeHtml(formatAcceptedAnswers(m.expected))}</strong>`;
         if (m.userAnswer === null) {
           detail += ' · <span class="your-answer">Saltada</span>';
         } else {
@@ -780,6 +935,7 @@ good - bueno`;
       const text = $('word-list').value;
       const { pairs: parsed, errors } = parseWordList(text);
       const errEl = $('parse-error');
+      const mode = getPracticeMode();
 
       if (errors.length) {
         errEl.textContent = errors.slice(0, 3).join(' · ') + (errors.length > 3 ? '…' : '');
@@ -793,9 +949,21 @@ good - bueno`;
         return;
       }
 
+      const filtered = parsed.filter((p) => pairSupportsMode(p, mode));
+      if (mode !== 'vocab' && filtered.length === 0) {
+        errEl.textContent = 'Esta lista no tiene columnas de pasado/participio. Usa tab: base · español · pasado · participio, o pulsa «Cargar verbos».';
+        errEl.classList.add('show');
+        return;
+      }
+
       errEl.classList.remove('show');
-      pairs = parsed;
+      pairs = filtered;
       buildQueue();
+      if (queue.length === 0) {
+        errEl.textContent = 'No hay palabras válidas para este modo de práctica.';
+        errEl.classList.add('show');
+        return;
+      }
       showQuiz();
       $('question-view').style.display = 'block';
       $('results-view').style.display = 'none';
@@ -806,6 +974,12 @@ good - bueno`;
 
     $('btn-example').addEventListener('click', () => {
       $('word-list').value = EXAMPLE;
+      $('parse-error').classList.remove('show');
+    });
+
+    $('btn-verbs').addEventListener('click', () => {
+      $('word-list').value = VERB_LIST;
+      document.querySelector('input[name="practice-mode"][value="verb-all"]').checked = true;
       $('parse-error').classList.remove('show');
     });
 
@@ -824,9 +998,21 @@ good - bueno`;
     $('btn-restart').addEventListener('click', () => startQuizWithIndices());
 
     $('btn-retry-mistakes').addEventListener('click', () => {
-      const failed = [...new Set(mistakes.map((m) => m.pairIndex))];
-      if (failed.length === 0) return;
-      startQuizWithIndices(failed);
+      if (mistakes.length === 0) return;
+      const seen = new Set();
+      const retryItems = [];
+      mistakes.forEach((m) => {
+        const key = `${m.pairIndex}-${m.verbMode ?? 'vocab'}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        retryItems.push({ pairIndex: m.pairIndex, verbMode: m.verbMode });
+      });
+      buildQueue(null, retryItems);
+      $('question-view').style.display = 'block';
+      $('results-view').style.display = 'none';
+      $('btn-retry-mistakes').style.display = 'none';
+      showQuiz();
+      showQuestion();
     });
 
     $('btn-back-setup').addEventListener('click', showSetup);
