@@ -223,6 +223,15 @@
         background: var(--accent-hover);
       }
 
+      .btn-success {
+        background: #16a34a;
+        color: white;
+      }
+
+      .btn-success:hover {
+        background: #15803d;
+      }
+
       .btn-secondary {
         background: var(--surface2);
         color: var(--text);
@@ -237,6 +246,13 @@
         background: transparent;
         color: var(--muted);
         border: 1px solid var(--border);
+      }
+
+      .status-text {
+        font-size: 0.8rem;
+        color: var(--muted);
+        margin-top: 0.5rem;
+        min-height: 1.2rem;
       }
 
       /* Views handling */
@@ -484,11 +500,11 @@
               id="word-list"
               placeholder="meet	conocer, encontrarse con	met	met&#10;apple = manzana"
             ></textarea>
-            <p class="hint">
-              <strong>Verbos (4 columnas con tab):</strong> inglés · español ·
-              pasado · participio. <strong>Vocabulario simple:</strong>
-              <code>apple = manzana</code> o <code>book, libro</code>.
-            </p>
+            
+            <div class="btn-row" style="margin-top: 0.75rem;">
+              <button type="button" class="btn-success" id="btn-save-active">💾 Guardar lista</button>
+            </div>
+            <p id="active-status" class="status-text"></p>
             <p id="parse-error" class="empty-state"></p>
           </div>
 
@@ -612,11 +628,13 @@
             style="min-height: 280px"
             placeholder="Pega o escribe aquí todas tus palabras (tus 114+ palabras acumuladas)..."
           ></textarea>
-          <p class="hint">
-            💡 Todo lo que escribas aquí se guardará en tu navegador
-            automáticamente.
-          </p>
+
+          <p id="bank-status" class="status-text"></p>
+
           <div class="btn-row" style="margin-top: 1rem">
+            <button type="button" class="btn-success" id="btn-save-bank">
+              💾 Guardar banco
+            </button>
             <button type="button" class="btn-primary" id="btn-copy-to-practice">
               📋 Copiar todo a la lista de estudio
             </button>
@@ -728,7 +746,7 @@
 
     <script>
       // =============================================================================
-      // LÓGICA DE LA APP CON BANCO SEPARADO Y ALMACENAMIENTO LOCAL
+      // LÓGICA DE LA APP CON BANCO SEPARADO Y SINCRONIZACIÓN
       // =============================================================================
 
       const STRONG_SEPARATORS = /\s*[=|\-|–|—|\t]\s*/;
@@ -794,51 +812,86 @@ let	permitir, dejar	let	let`;
 
       const $ = (id) => document.getElementById(id);
 
-      // --- Almacenamiento local para Banco y Lista Activa ---
       const ACTIVE_STORAGE_KEY = "practica_ingles_active_v2";
       const BANK_STORAGE_KEY = "practica_ingles_bank_v2";
 
-      // Cargar palabras al abrir la aplicación desde cualquier dispositivo
+      // Cargar palabras desde el servidor
       async function loadSavedData() {
         try {
           const response = await fetch("/api/get-words");
+          if (!response.ok) throw new Error("Error HTTP " + response.status);
+          
           const data = await response.json();
 
-          // Filtramos las palabras según el apartado (lista activa o banco general)
           const activeWords = data.filter((w) => w.tipo === "active");
           const bankWords = data.filter((w) => w.tipo === "bank");
 
           if (activeWords.length > 0) {
             $("word-list").value = formatWordsToText(activeWords);
+          } else if (localStorage.getItem(ACTIVE_STORAGE_KEY)) {
+            $("word-list").value = localStorage.getItem(ACTIVE_STORAGE_KEY);
           }
+
           if (bankWords.length > 0) {
             $("bank-list").value = formatWordsToText(bankWords);
+          } else if (localStorage.getItem(BANK_STORAGE_KEY)) {
+            $("bank-list").value = localStorage.getItem(BANK_STORAGE_KEY);
           }
+
           updateCounts();
         } catch (err) {
-          console.error("Error al cargar desde Neon:", err);
+          console.warn("Cargando desde almacenamiento local:", err.message);
+          if (localStorage.getItem(ACTIVE_STORAGE_KEY)) $("word-list").value = localStorage.getItem(ACTIVE_STORAGE_KEY);
+          if (localStorage.getItem(BANK_STORAGE_KEY)) $("bank-list").value = localStorage.getItem(BANK_STORAGE_KEY);
+          updateCounts();
         }
       }
 
-      // Convierte los objetos descargados de Neon al formato de texto plano con Tabs o comas
       function formatWordsToText(wordsArray) {
         return wordsArray
           .map((w) => {
-            if (w.pasado && w.participio) {
-              return `${w.ingles}\t${w.espanol}\t${w.pasado}\t${w.participio}`;
+            const en = w.ingles || w.en || '';
+            const es = w.espanol || w.es || '';
+            const past = w.pasado || w.past || '';
+            const participle = w.participio || w.participle || '';
+            
+            if (past && participle) {
+              return `${en}\t${es}\t${past}\t${participle}`;
             }
-            return `${w.ingles} = ${w.espanol}`;
+            return `${en} = ${es}`;
           })
           .join("\n");
       }
-      // Guardar lista en Neon
+
+      // Guardar palabras en el servidor con indicador de estado
       async function saveToNeon(tipo, textContent) {
+        const statusEl = tipo === "active" ? $("active-status") : $("bank-status");
+        if (statusEl) statusEl.textContent = "⏳ Guardando...";
+
         const { pairs } = parseWordList(textContent);
-        await fetch("/api/save-words", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ words: pairs, tipo }),
-        });
+
+        try {
+          const res = await fetch("/api/save-words", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ words: pairs, tipo }),
+          });
+
+          if (!res.ok) throw new Error("Error en servidor (" + res.status + ")");
+
+          const json = await res.json();
+          if (statusEl) {
+            statusEl.style.color = "var(--success)";
+            statusEl.textContent = `✓ Guardado correctamente (${pairs.length} palabras)`;
+            setTimeout(() => { statusEl.textContent = ""; }, 3000);
+          }
+        } catch (err) {
+          console.error("Error al guardar:", err);
+          if (statusEl) {
+            statusEl.style.color = "var(--error)";
+            statusEl.textContent = "❌ Error al guardar";
+          }
+        }
       }
 
       function updateCounts() {
@@ -852,22 +905,20 @@ let	permitir, dejar	let	let`;
           .filter(Boolean);
 
         $("active-word-count").textContent = `(${activeLines.length} palabras)`;
-        $("bank-word-count").textContent =
-          `(${bankLines.length} palabras acumuladas)`;
+        $("bank-word-count").textContent = `(${bankLines.length} palabras acumuladas)`;
       }
 
-      // Escuchar cambios en ambas áreas de texto para autosave
+      // Eventos de auto-guardado
       let saveTimeoutActive, saveTimeoutBank;
 
       $("word-list").addEventListener("input", () => {
         localStorage.setItem(ACTIVE_STORAGE_KEY, $("word-list").value);
         updateCounts();
 
-        // Guarda en Neon 1 segundo después de que dejes de escribir
         clearTimeout(saveTimeoutActive);
         saveTimeoutActive = setTimeout(() => {
           saveToNeon("active", $("word-list").value);
-        }, 1000);
+        }, 1200);
       });
 
       $("bank-list").addEventListener("input", () => {
@@ -877,17 +928,21 @@ let	permitir, dejar	let	let`;
         clearTimeout(saveTimeoutBank);
         saveTimeoutBank = setTimeout(() => {
           saveToNeon("bank", $("bank-list").value);
-        }, 1000);
+        }, 1200);
       });
 
-      // --- Navegación entre Pestañas ---
-      $("tab-practice-btn").addEventListener("click", () => {
-        switchTab("practice");
+      // Botones explícitos de guardar
+      $("btn-save-active").addEventListener("click", () => {
+        saveToNeon("active", $("word-list").value);
       });
 
-      $("tab-bank-btn").addEventListener("click", () => {
-        switchTab("bank");
+      $("btn-save-bank").addEventListener("click", () => {
+        saveToNeon("bank", $("bank-list").value);
       });
+
+      // Navegación entre Pestañas
+      $("tab-practice-btn").addEventListener("click", () => switchTab("practice"));
+      $("tab-bank-btn").addEventListener("click", () => switchTab("bank"));
 
       function switchTab(tab) {
         if (tab === "practice") {
@@ -903,7 +958,6 @@ let	permitir, dejar	let	let`;
         }
       }
 
-      // Botón para copiar todas las palabras del Banco a la Lista Activa
       $("btn-copy-to-practice").addEventListener("click", () => {
         const bankText = $("bank-list").value;
         if (!bankText.trim()) {
@@ -912,19 +966,17 @@ let	permitir, dejar	let	let`;
         }
         $("word-list").value = bankText;
         localStorage.setItem(ACTIVE_STORAGE_KEY, bankText);
+        saveToNeon("active", bankText);
         updateCounts();
         switchTab("practice");
         alert("¡Palabras del banco copiadas a la lista de estudio activa!");
       });
 
       $("btn-clear-bank").addEventListener("click", () => {
-        if (
-          confirm(
-            "¿Estás seguro de borrar todas las palabras acumuladas de tu Banco?",
-          )
-        ) {
+        if (confirm("¿Estás seguro de borrar todas las palabras acumuladas de tu Banco?")) {
           $("bank-list").value = "";
           localStorage.setItem(BANK_STORAGE_KEY, "");
+          saveToNeon("bank", "");
           updateCounts();
         }
       });
@@ -951,11 +1003,19 @@ let	permitir, dejar	let	let`;
               .filter(Boolean);
             parts = [strong[0], strong.slice(1).join(" ")];
           } else {
-            const comma = line
-              .split(/\s*,\s*/)
+            const multiSpace = line
+              .split(/\s{2,}/)
               .map((p) => p.trim())
               .filter(Boolean);
-            parts = comma.length === 2 ? comma : [];
+            if (multiSpace.length >= 2) {
+              parts = multiSpace;
+            } else {
+              const comma = line
+                .split(/\s*,\s*/)
+                .map((p) => p.trim())
+                .filter(Boolean);
+              parts = comma.length === 2 ? comma : [];
+            }
           }
 
           if (parts.length < 2) {
@@ -982,37 +1042,25 @@ let	permitir, dejar	let	let`;
       }
 
       function getPracticeMode() {
-        return document.querySelector('input[name="practice-mode"]:checked')
-          .value;
+        return document.querySelector('input[name="practice-mode"]:checked').value;
       }
 
       function pairSupportsMode(pair, mode) {
         if (mode === "vocab") return true;
-        if (mode === "verb-all") {
-          return Boolean(pair.past && pair.participle);
-        }
+        if (mode === "verb-all") return Boolean(pair.past && pair.participle);
         if (mode === "past") return Boolean(pair.past);
         if (mode === "participle") return Boolean(pair.participle);
         return true;
       }
 
-      function getCurrentPair() {
-        return pairs[queue[currentIndex].pairIndex];
-      }
-
-      function getCurrentVerbMode() {
-        return queue[currentIndex].verbMode;
-      }
+      function getCurrentPair() { return pairs[queue[currentIndex].pairIndex]; }
+      function getCurrentVerbMode() { return queue[currentIndex].verbMode; }
 
       function setVerbFormQuestion(verbMode, pair) {
         currentDirection = "verb-form";
         $("direction-badge").textContent = VERB_MODE_LABELS[verbMode];
         $("prompt-word").textContent = pair.en;
-        const placeholders = {
-          past: "Pasado simple en inglés...",
-          participle: "Participio en inglés...",
-        };
-        $("answer-input").placeholder = placeholders[verbMode];
+        $("answer-input").placeholder = verbMode === "past" ? "Pasado simple..." : "Participio...";
       }
 
       function setTranslationQuestion(pair) {
@@ -1031,17 +1079,12 @@ let	permitir, dejar	let	let`;
       function normalize(str, ignoreCase, ignoreAccents) {
         let s = str.trim();
         if (ignoreCase) s = s.toLowerCase();
-        if (ignoreAccents) {
-          s = s.normalize("NFD").replace(/\p{M}/gu, "");
-        }
+        if (ignoreAccents) s = s.normalize("NFD").replace(/\p{M}/gu, "");
         return s;
       }
 
       function splitAnswerAlternatives(correct) {
-        return correct
-          .split(/\s*[,;\/]\s*/)
-          .map((s) => s.trim())
-          .filter(Boolean);
+        return correct.split(/\s*[,;\/]\s*/).map((s) => s.trim()).filter(Boolean);
       }
 
       function formatAcceptedAnswers(correct) {
@@ -1053,9 +1096,7 @@ let	permitir, dejar	let	let`;
         const ignoreCase = $("ignore-case").checked;
         const ignoreAccents = $("ignore-accents").checked;
         const a = normalize(user, ignoreCase, ignoreAccents);
-        const alts = splitAnswerAlternatives(correct).map((s) =>
-          normalize(s, ignoreCase, ignoreAccents),
-        );
+        const alts = splitAnswerAlternatives(correct).map((s) => normalize(s, ignoreCase, ignoreAccents));
         return alts.some((alt) => alt === a);
       }
 
@@ -1069,18 +1110,14 @@ let	permitir, dejar	let	let`;
       }
 
       function getDirection() {
-        const mode = document.querySelector(
-          'input[name="direction"]:checked',
-        ).value;
+        const mode = document.querySelector('input[name="direction"]:checked').value;
         if (mode === "en-es") return "en-es";
         if (mode === "es-en") return "es-en";
         return Math.random() < 0.5 ? "en-es" : "es-en";
       }
 
       function buildQueue(poolIndices, fixedItems) {
-        const order = document.querySelector(
-          'input[name="order"]:checked',
-        ).value;
+        const order = document.querySelector('input[name="order"]:checked').value;
         const mode = getPracticeMode();
         const pool = poolIndices ?? pairs.map((_, i) => i);
         let items = fixedItems;
@@ -1116,10 +1153,7 @@ let	permitir, dejar	let	let`;
         const item = queue[currentIndex];
         const pair = pairs[item.pairIndex];
         const expected = getExpectedAnswer();
-        const prompt =
-          currentDirection === "en-es" || currentDirection === "verb-form"
-            ? pair.en
-            : pair.es;
+        const prompt = currentDirection === "en-es" || currentDirection === "verb-form" ? pair.en : pair.es;
         mistakes.push({
           pairIndex: item.pairIndex,
           verbMode: item.verbMode,
@@ -1221,12 +1255,7 @@ let	permitir, dejar	let	let`;
         $("answer-input").disabled = true;
         $("btn-check").disabled = true;
         $("btn-next").style.display = "inline-block";
-
-        if (currentIndex >= queue.length - 1) {
-          $("btn-next").textContent = "Ver resultados";
-        } else {
-          $("btn-next").textContent = "Siguiente";
-        }
+        $("btn-next").textContent = currentIndex >= queue.length - 1 ? "Ver resultados" : "Siguiente";
       }
 
       function escapeHtml(s) {
@@ -1237,11 +1266,8 @@ let	permitir, dejar	let	let`;
 
       function nextQuestion() {
         currentIndex++;
-        if (currentIndex >= queue.length) {
-          showResults();
-        } else {
-          showQuestion();
-        }
+        if (currentIndex >= queue.length) showResults();
+        else showQuestion();
       }
 
       function skipQuestion() {
@@ -1256,9 +1282,7 @@ let	permitir, dejar	let	let`;
           $("answer-input").disabled = true;
           $("btn-check").disabled = true;
           $("btn-next").style.display = "inline-block";
-          if (currentIndex >= queue.length - 1) {
-            $("btn-next").textContent = "Ver resultados";
-          }
+          if (currentIndex >= queue.length - 1) $("btn-next").textContent = "Ver resultados";
           return;
         }
         nextQuestion();
@@ -1285,22 +1309,10 @@ let	permitir, dejar	let	let`;
 
         mistakes.forEach((m) => {
           const li = document.createElement("li");
-          const tenseLabel =
-            m.verbMode && m.verbMode !== "vocab"
-              ? VERB_MODE_LABELS[m.verbMode] + " · "
-              : "";
-          const dirLabel =
-            m.verbMode === "vocab" || !m.verbMode
-              ? m.direction === "en-es"
-                ? `${m.en} → ${m.es}`
-                : `${m.es} → ${m.en}`
-              : `${m.en} (${VERB_MODE_LABELS[m.verbMode]})`;
+          const tenseLabel = m.verbMode && m.verbMode !== "vocab" ? VERB_MODE_LABELS[m.verbMode] + " · " : "";
+          const dirLabel = m.verbMode === "vocab" || !m.verbMode ? (m.direction === "en-es" ? `${m.en} → ${m.es}` : `${m.es} → ${m.en}`) : `${m.en} (${VERB_MODE_LABELS[m.verbMode]})`;
           let detail = `${tenseLabel}Pregunta: <strong>${escapeHtml(m.prompt)}</strong> · Correcta: <strong>${escapeHtml(formatAcceptedAnswers(m.expected))}</strong>`;
-          if (m.userAnswer === null) {
-            detail += ' · <span class="your-answer">Saltada</span>';
-          } else {
-            detail += ` · <span class="your-answer">Escribiste: ${escapeHtml(m.userAnswer)}</span>`;
-          }
+          detail += m.userAnswer === null ? ' · <span class="your-answer">Saltada</span>' : ` · <span class="your-answer">Escribiste: ${escapeHtml(m.userAnswer)}</span>`;
           li.innerHTML = `<div class="pair">${dirLabel}</div><div class="detail">${detail}</div>`;
           list.appendChild(li);
         });
@@ -1332,23 +1344,20 @@ let	permitir, dejar	let	let`;
         const mode = getPracticeMode();
 
         if (errors.length) {
-          errEl.textContent =
-            errors.slice(0, 3).join(" · ") + (errors.length > 3 ? "…" : "");
+          errEl.textContent = errors.slice(0, 3).join(" · ") + (errors.length > 3 ? "…" : "");
           errEl.classList.add("show");
           return;
         }
 
         if (parsed.length === 0) {
-          errEl.textContent =
-            "Añade al menos un par de palabras a la lista de estudio.";
+          errEl.textContent = "Añade al menos un par de palabras a la lista de estudio.";
           errEl.classList.add("show");
           return;
         }
 
         const filtered = parsed.filter((p) => pairSupportsMode(p, mode));
         if (mode !== "vocab" && filtered.length === 0) {
-          errEl.textContent =
-            "Esta lista no tiene columnas de pasado/participio. Usa tab: base · español · pasado · participio.";
+          errEl.textContent = "Esta lista no tiene columnas de pasado/participio. Usa tab o espacios múltiples: base · español · pasado · participio.";
           errEl.classList.add("show");
           return;
         }
@@ -1356,19 +1365,12 @@ let	permitir, dejar	let	let`;
         errEl.classList.remove("show");
         pairs = filtered;
         buildQueue();
-        if (queue.length === 0) {
-          errEl.textContent =
-            "No hay palabras válidas para este modo de práctica.";
-          errEl.classList.add("show");
-          return;
-        }
         showQuiz();
         $("question-view").style.display = "block";
         $("results-view").style.display = "none";
         showQuestion();
       }
 
-      // --- Inicialización y Eventos ---
       window.addEventListener("DOMContentLoaded", () => {
         loadSavedData();
       });
@@ -1378,6 +1380,7 @@ let	permitir, dejar	let	let`;
       $("btn-example").addEventListener("click", () => {
         $("word-list").value = EXAMPLE;
         localStorage.setItem(ACTIVE_STORAGE_KEY, EXAMPLE);
+        saveToNeon("active", EXAMPLE);
         updateCounts();
         $("parse-error").classList.remove("show");
       });
@@ -1385,10 +1388,9 @@ let	permitir, dejar	let	let`;
       $("btn-verbs").addEventListener("click", () => {
         $("word-list").value = VERB_LIST;
         localStorage.setItem(ACTIVE_STORAGE_KEY, VERB_LIST);
+        saveToNeon("active", VERB_LIST);
         updateCounts();
-        document.querySelector(
-          'input[name="practice-mode"][value="verb-all"]',
-        ).checked = true;
+        document.querySelector('input[name="practice-mode"][value="verb-all"]').checked = true;
         $("parse-error").classList.remove("show");
       });
 
